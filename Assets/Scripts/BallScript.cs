@@ -16,6 +16,10 @@ public class BallScript : MonoBehaviour
     public AudioClip flapSound;
     private AudioSource audioSource;
 
+    [Header("Auto Pilot Settings")]
+    public bool isAutoPilot = false;
+    public float autoPilotMinHeight = -1.0f; // Height to trigger flap
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -36,33 +40,57 @@ public class BallScript : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Space) == true && ballIsAlive == true && Time.timeScale > 0)
+        // User Input
+        if (Input.GetKeyDown(KeyCode.Space) == true && ballIsAlive == true && !isAutoPilot && Time.timeScale > 0)
         {
-            myRigidbody.linearVelocity = Vector2.up * flapStrength;
-            
-            // Trigger animation
-            if (flapCoroutine != null) StopCoroutine(flapCoroutine);
-            flapCoroutine = StartCoroutine(FlapSequence());
+            Flap();
+        }
 
-            // Play flap sound
-            if (flapSound != null && audioSource != null)
+        // Auto Pilot Logic
+        if (isAutoPilot && ballIsAlive && Time.timeScale > 0)
+        {
+            // Only flap if we are below height AND falling (prevents spamming flap every frame)
+            if (transform.position.y < autoPilotMinHeight && myRigidbody.linearVelocity.y <= 0)
             {
-                audioSource.PlayOneShot(flapSound);
-            }
-            else
-            {
-                if (flapSound == null) Debug.LogWarning("BallScript: 'Flap Sound' is missing! Assign an AudioClip in the Inspector.");
+                Flap();
             }
         }
 
         // Check if ball goes out of screen
         if (transform.position.y > 50 || transform.position.y < -50 || transform.position.x < -10)
         {
-            if (ballIsAlive) // Only trigger game over once
+            if (ballIsAlive && !isAutoPilot) // Don't die in auto pilot if slightly out of bounds (though usually we keep it in)
             {
                 logic.gameOver();
                 ballIsAlive = false;
             }
+        }
+    }
+
+    public void Flap()
+    {
+        myRigidbody.linearVelocity = Vector2.up * flapStrength;
+            
+        // Trigger animation
+        if (flapCoroutine != null) StopCoroutine(flapCoroutine);
+        flapCoroutine = StartCoroutine(FlapSequence());
+
+        // Play flap sound
+        if (flapSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(flapSound);
+        }
+    }
+
+    public void SetAutoPilot(bool active)
+    {
+        isAutoPilot = active;
+        // Collision remains enabled as requested
+        
+        if (active)
+        {
+            ballIsAlive = true; // Resurrect if needed
+            myRigidbody.linearVelocity = Vector2.zero; // Reset momentum
         }
     }
 
